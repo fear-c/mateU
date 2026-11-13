@@ -77,9 +77,9 @@ nav button.on{color:var(--navy);box-shadow:inset 0 3px 0 var(--teal)}
 </head>
 <body>
 <div id="app"><div id="top"></div><div id="main"></div><div id="bar"></div><nav id="nav"></nav></div>
+<script src="config.js"></script>
 <script>
-/* ISI 3 NILAI INI (semuanya boleh publik). Lihat langkah-langkahnya di chat. */
-var CFG={SB_URL:"https://hjbritekymuxjmmlihso.supabase.co",SB_KEY:"sb_publishable_XZ-5pl1b8U0H6ka-sajBgg_qhY3at0O",MT_KEY:"ISI_CLIENT_KEY_MIDTRANS"};
+var CFG=window.CFG||{SB_URL:"https://hjbritekymuxjmmlihso.supabase.co",SB_KEY:"sb_publishable_XZ-5pl1b8U0H6ka-sajBgg_qhY3at0O",MT_KEY:""};
 var HEADS=[["manusia","Manusia"],["kucing","Kucing"],["kelinci","Kelinci"],["beruang","Beruang"],["jerapah","Jerapah"],["rubah","Rubah"]],
 FACES=[["lucu","Lucu"],["ganteng","Ganteng"],["cantik","Cantik"]],
 SIZES=[["kecil","Kecil"],["sedang","Sedang"],["besar","Besar"]],
@@ -142,8 +142,8 @@ var CRISIS=/bunuh diri|mengakhiri hidup|menyakiti diri|ingin mati|pengen mati|ti
 var SOS='<div class="card sos" style="margin-top:16px"><b>Butuh bantuan segera?</b><p style="font-size:14px">Kalau kamu dalam keadaan darurat atau ingin menyakiti diri, hubungi 112 atau orang terdekat sekarang.</p></div>';
 function cfgErr(){
  var u=String(CFG.SB_URL||""),k=String(CFG.SB_KEY||"");
- if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(u))return"URL Supabase di index.html belum benar. Harus seperti https://abcdxyz.supabase.co";
- if(!k||/^ISI_/.test(k))return"Key Supabase di index.html belum diisi.";
+ if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(u))return"URL Supabase belum benar, atau file config.js belum ada. Harus seperti https://abcdxyz.supabase.co";
+ if(!k||/^ISI_/.test(k))return"Key Supabase di config.js belum diisi.";
  if(/^sb_secret_/.test(k))return"Yang kamu tempel di index.html adalah key RAHASIA. Pakai Publishable key (sb_publishable_...).";
  try{if(JSON.parse(atob(k.split(".")[1])).role=="service_role")return"Yang kamu tempel di index.html adalah key service_role (rahasia). Pakai Publishable key atau anon key."}catch(e){}
  return""}
@@ -180,7 +180,11 @@ var S={scr:"boot",am:"in",rt:"customer",me:null,pf:null,pros:[],bks:[],msgs:{},b
  mood:(m0&&m0.d==new Date().toDateString())?m0.i:null,av:ld("mateu_av",null)||defAV()};
 
 async function api(n,b){try{
- if(n=="ai"){try{var f=await sb.functions.invoke("ai",{body:b});if(!f.error&&f.data&&f.data.text!==undefined)return f.data}catch(e){}}
+ S.dbg="";
+ if(n=="ai"){try{var f=await sb.functions.invoke("ai",{body:b});
+  if(!f.error&&f.data&&f.data.text)return f.data;
+  S.dbg="supabase: "+(f.error?((f.error.context&&f.error.context.status)||"")+" "+f.error.message:(f.data&&f.data.error)||"jawaban kosong");
+ }catch(e){S.dbg="supabase: "+e.message}}
  var s=(await sb.auth.getSession()).data.session;var r=await fetch("/.netlify/functions/"+n,{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+s.access_token},body:JSON.stringify(b)});if(!r.ok)return{err:r.status};return await r.json()}catch(e){return{}}}
 
 /* ---------- data ---------- */
@@ -260,7 +264,7 @@ async function send(txt){
  if(CRISIS.test(t)){S.ai.push({r:"ai",sos:1,t:"Aku khawatir mendengarnya, dan terima kasih sudah berani bilang. Kamu tidak harus menghadapi ini sendirian. Kalau kamu dalam bahaya sekarang, segera hubungi 112, atau datangi orang terdekat dan ceritakan apa yang kamu rasakan. Kalau mau, kita juga bisa cari psikolog lewat menu Cari."});S.rec=true;return draw()}
  S.busy=true;draw();
  var r=await api("ai",{messages:S.ai.slice(1).map(function(m){return{role:m.r=="me"?"user":"assistant",content:m.t}})});
- S.busy=false;S.ai.push({r:"ai",t:r.text||(r.err==404?"Fitur AI belum diaktifkan di situs ini (butuh pengaturan tambahan). Kamu tetap bisa lanjut lewat menu Cari untuk menemukan psikolog.":"Maaf, aku sedang tidak bisa menjawab. Coba lagi sebentar ya.")});
+ S.busy=false;var why=(S.dbg||"")+(r.err?" | netlify "+r.err:"");S.ai.push({r:"ai",t:r.text||("Maaf, aku sedang tidak bisa menjawab. Coba lagi sebentar ya."+(why?" ["+why+"]":""))});
  if(S.ai.filter(function(m){return m.r=="me"}).length>=3)S.rec=true;draw();
 }
 async function showRec(){S.busy=true;draw();var r=await api("ai",{mode:"summary",messages:S.ai.slice(1).map(function(m){return{role:m.r=="me"?"user":"assistant",content:m.t}})});S.busy=false;var d=null;try{d=JSON.parse((r.text||"").replace(/```json|```/g,"").trim())}catch(e){}
